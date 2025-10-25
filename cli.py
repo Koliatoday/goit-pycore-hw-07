@@ -22,6 +22,8 @@ def input_error(func: Callable) -> Callable:
             return "Name not in contacts, please create it at first"
         except IndexError:
             return "Enter the argument for the command"
+        except AttributeError:
+            return "Entity not found"
 
     return inner
 
@@ -48,7 +50,6 @@ def add_contact(args, book: AddressBook):
     Returns:
         str: A message indicating the result of the operation.
     """
-
     name, phone, *_ = args
     record = book.find(name)
     message = "Contact updated."
@@ -74,13 +75,9 @@ def change_contact(args: list[str], book: AddressBook) -> str:
 
     name, phone, new_phone = args
     record = book.find(name)
+    record.edit_phone(phone, new_phone)
 
-    if not record:
-        return f"Name {name} not in contacts, please create it at first"
-    elif record.edit_phone(phone, new_phone):
-        return f"Contact {name} changed the number from {phone} to {new_phone}"
-    else:
-        return f"Phone {phone} not found for contact {name}"
+    return f"Contact {name} changed the number from {phone} to {new_phone}"
 
 
 @input_error
@@ -106,11 +103,13 @@ def all_contacts(book: AddressBook) -> str:
 
     ret = ""
     if not book.data:
-        return "No contacts found."
+        return "Address book is empty."
 
     for name, record in book.data.items():
         phones = [n.value for n in record.phones]
-        ret = ret + f"{name}: {', '.join(phones)}\n"
+        ret = ret + f"{name} phone(s): {', '.join(phones)}\n"
+        if record.birthday:
+            ret += f"{name} birthday: {record.birthday.value.strftime('%d.%m.%Y')}\n"
 
     return ret
 
@@ -124,14 +123,11 @@ def add_birthday(args, book):
     Returns:
         str: A message indicating the result of the operation.
     """
-
     name, birthday = args
     record = book.find(name)
-    if record:
-        record.add_birthday(birthday)
-        return f"Birthday {birthday} for {name} added."
-    else:
-        return f"Contact {name} not found."
+    record.add_birthday(birthday)
+
+    return f"Birthday {birthday} for {name} added."
 
 
 @input_error
@@ -145,10 +141,12 @@ def show_birthday(args, book):
 
     name, = args
     record = book.find(name)
-    if record and record.birthday:
-        return f"{name}'s birthday is on {record.birthday.value.strftime('%d.%m.%Y')}."
-    else:
-        return f"Birthday for {name} not found."
+    return f"{name}'s birthday is on {record.birthday.value.strftime('%d.%m.%Y')}."
+
+    #if record and record.birthday:
+    #    return f"{name}'s birthday is on {record.birthday.value.strftime('%d.%m.%Y')}."
+    #else:
+    #    return f"Birthday for {name} not found."
 
 
 @input_error

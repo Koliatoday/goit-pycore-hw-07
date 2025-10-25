@@ -15,16 +15,24 @@ class Name(Field):
     pass
 
 
+def phone_format_correct(phone: str) -> bool:
+    """ Helper function to check phone number format
+    Parameters:
+        phone (str): The phone number to check.
+    Returns:
+        bool: True if the phone number is valid, raise ValueError
+              exception otherwise.
+    """
+    if len(phone) != 10 or not phone.isdigit() or not isinstance(phone, str):
+        raise ValueError("Invalid phone number format. Use 10 digit string format.")
+    return True
+
+
 class Phone(Field):
     """Class for phone number in record"""
     def __init__(self, value):
-        if not isinstance(value, str):
-            raise TypeError("Phone must be in a string format")
-        if len(value) != 10 or not value.isdigit():
-            raise ValueError("Phone must be 10 digit string format")
-
-        self.value = value
-
+        if phone_format_correct(value):
+            self.value = value
 
 class Birthday(Field):
     def __init__(self, date):
@@ -45,8 +53,8 @@ class Record:
         return f"Contact name: {self.name.value}, phones: {'; '.join(p.value for p in self.phones)}"
 
     def add_phone(self, phone: str):
-      phone_obj = Phone(phone)
-      self.phones.append(phone_obj)
+        phone_obj = Phone(phone)
+        self.phones.append(phone_obj)
 
     def remove_phone(self, phone: str):
         phone_obj = self.find_phone(phone)
@@ -54,12 +62,9 @@ class Record:
             self.phones.remove(phone_obj)
 
     def edit_phone(self, phone: str, new_phone: str):
-        phone_obj = self.find_phone(phone)
-        if phone_obj:
+        if phone_format_correct(new_phone) and phone_format_correct(phone):
+            phone_obj = self.find_phone(phone)
             phone_obj.value = new_phone
-            return True
-        else:
-            return False
 
     def find_phone(self, phone: str):
         for phone_obj in self.phones:
@@ -104,14 +109,13 @@ class AddressBook(UserDict):
         del self.data[name]
 
   def get_upcoming_birthdays(self):
-
     ret = []
     today_obj = datetime.now().date()
     YEAR = today_obj.year
 
     for name, record in self.data.items():
         if record.birthday:
-            user_date_obj = record.birthday.value.date()
+            user_date_obj = record.birthday.value.replace(year=YEAR).date()
             user_date_ny_obj = record.birthday.value.replace(year=YEAR+1).date()
 
             diff = user_date_obj - today_obj
