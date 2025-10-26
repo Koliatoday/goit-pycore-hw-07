@@ -101,17 +101,10 @@ def all_contacts(book: AddressBook) -> str:
     Returns:
         str: A formatted string containing all contacts."""
 
-    ret = ""
     if not book.data:
         return "Address book is empty."
 
-    for name, record in book.data.items():
-        phones = [n.value for n in record.phones]
-        ret = ret + f"{name} phone(s): {', '.join(phones)}\n"
-        if record.birthday:
-            ret += f"{name} birthday: {record.birthday.value.strftime('%d.%m.%Y')}\n"
-
-    return ret
+    return str(book)
 
 
 @input_error
@@ -142,11 +135,6 @@ def show_birthday(args, book):
     name, = args
     record = book.find(name)
     return f"{name}'s birthday is on {record.birthday.value.strftime('%d.%m.%Y')}."
-
-    #if record and record.birthday:
-    #    return f"{name}'s birthday is on {record.birthday.value.strftime('%d.%m.%Y')}."
-    #else:
-    #    return f"Birthday for {name} not found."
 
 
 @input_error

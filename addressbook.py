@@ -31,8 +31,9 @@ def phone_format_correct(phone: str) -> bool:
 class Phone(Field):
     """Class for phone number in record"""
     def __init__(self, value):
-        if phone_format_correct(value):
-            self.value = value
+        if len(value) != 10 or not value.isdigit() or not isinstance(value, str):
+            raise ValueError("Invalid phone number format. Use 10 digit string format.")
+        self.value = value
 
 class Birthday(Field):
     def __init__(self, date):
@@ -40,6 +41,25 @@ class Birthday(Field):
             self.value = datetime.strptime(date, "%d.%m.%Y")
         except ValueError:
             raise ValueError("Invalid date format. Use DD.MM.YYYY")
+
+    def check_holiday(self, date_obj: datetime, diff: int) -> str:
+        """ Adjust birthday dates falling on weekends.
+        If the birthday falls on a Saturday or Sunday, it moves the date
+        to the next Monday"""
+        if date_obj.isoweekday() == 6:
+            if diff < 5:
+                date_obj = date_obj + timedelta(days=2)
+            else:
+                # Differeence between birthday and today is more than 7 days,
+                # so we skip this birthday
+                return None
+        elif date_obj.isoweekday() == 7:
+            if diff < 6:
+                date_obj = date_obj + timedelta(days=1)
+            else:
+                return None
+
+        return f"{date_obj.day}.{date_obj.month}.{date_obj.year}"
 
 
 class Record:
@@ -50,7 +70,10 @@ class Record:
         self.birthday = None
 
     def __str__(self):
-        return f"Contact name: {self.name.value}, phones: {'; '.join(p.value for p in self.phones)}"
+        ret = f"Contact name: {self.name.value}, phones: {'; '.join(p.value for p in self.phones)}"
+        if self.birthday:
+            ret += f", birthday: {self.birthday.value.strftime('%d.%m.%Y')}"
+        return ret
 
     def add_phone(self, phone: str):
         phone_obj = Phone(phone)
@@ -62,9 +85,10 @@ class Record:
             self.phones.remove(phone_obj)
 
     def edit_phone(self, phone: str, new_phone: str):
-        if phone_format_correct(new_phone) and phone_format_correct(phone):
-            phone_obj = self.find_phone(phone)
-            phone_obj.value = new_phone
+        if not self.find_phone(phone):
+             raise ValueError
+        self.add_phone(new_phone)
+        self.remove_phone(phone)
 
     def find_phone(self, phone: str):
         for phone_obj in self.phones:
@@ -75,59 +99,42 @@ class Record:
         self.birthday = Birthday(val)
 
 
-def check_holiday(date_obj: datetime, diff: int) -> str:
-  """ Helper function to adjust birthday dates falling on weekends.
-  If the birthday falls on a Saturday or Sunday, it moves the date
-  to the next Monday"""
-  if date_obj.isoweekday() == 6:
-     if diff < 5:
-      date_obj = date_obj + timedelta(days=2)
-     else:
-      # Differeence between birthday and today is more than 7 days,
-      # so we skip this birthday
-      return None
-  elif date_obj.isoweekday() == 7:
-     if diff < 6:
-      date_obj = date_obj + timedelta(days=1)
-     else:
-      return None
-
-  return f"{date_obj.day}.{date_obj.month}.{date_obj.year}"
-
-
 class AddressBook(UserDict):
-  """Class for address book"""
-  def add_record(self, record):
-    self.data[record.name.value] = record
+    """Class for address book"""
+    def __str__(self):
+        return "\n".join(str(record) for record in self.data.values())
 
-  def find(self, name: str):
-    if name in self.data.keys():
-        return self.data[name]
+    def add_record(self, record):
+        self.data[record.name.value] = record
 
-  def delete(self, name: str):
-    if self.find(name):
-        del self.data[name]
+    def find(self, name: str):
+        if name in self.data.keys():
+            return self.data[name]
 
-  def get_upcoming_birthdays(self):
-    ret = []
-    today_obj = datetime.now().date()
-    YEAR = today_obj.year
+    def delete(self, name: str):
+        if self.find(name):
+            del self.data[name]
 
-    for name, record in self.data.items():
-        if record.birthday:
-            user_date_obj = record.birthday.value.replace(year=YEAR).date()
-            user_date_ny_obj = record.birthday.value.replace(year=YEAR+1).date()
+    def get_upcoming_birthdays(self):
+        ret = []
+        today_obj = datetime.now().date()
+        YEAR = today_obj.year
 
-            diff = user_date_obj - today_obj
-            diff_ny = user_date_ny_obj - today_obj
+        for name, record in self.data.items():
+            if record.birthday:
+                user_date_obj = record.birthday.value.replace(year=YEAR).date()
+                user_date_ny_obj = record.birthday.value.replace(year=YEAR+1).date()
 
-            if diff.days >= 0 and diff.days <= 6:
-                day = check_holiday(user_date_obj, diff.days)
-                if day:
-                    ret.append({"name":record.name.value, 'congratulation_date':day})
-            elif diff_ny.days <= 6:
-                day = check_holiday(user_date_ny_obj, diff_ny.days)
-                if day:
-                    ret.append({"name":record.name.value, 'congratulation_date':day})
+                diff = user_date_obj - today_obj
+                diff_ny = user_date_ny_obj - today_obj
 
-    return ret
+                if diff.days >= 0 and diff.days <= 6:
+                    day = record.birthday.check_holiday(user_date_obj, diff.days)
+                    if day:
+                        ret.append({"name":record.name.value, 'congratulation_date':day})
+                elif diff_ny.days <= 6:
+                    day = record.birthday.check_holiday(user_date_ny_obj, diff_ny.days)
+                    if day:
+                        ret.append({"name":record.name.value, 'congratulation_date':day})
+
+        return ret
